@@ -41,17 +41,21 @@ class extractor:
         match self.model_name:
             case VARS.GCB:
                 ext = gcb_input_extractor(
+                    tokenizer=self.tokenizer,
                     lang='c',
                     code_length=self.max_length,
                 )
             case VARS.CB:
                 ext = cb_input_extractor(
+                    tokenizer=self.tokenizer,
                     code_length=self.max_length
-                )        
+                    
+                )
         inputs = ext(source_code=source_codes)
         with torch.no_grad():
             outputs = self.model(
-                **inputs
+                **inputs,
+                output_hidden_states=True
             )
         
         if task == 'classification':
