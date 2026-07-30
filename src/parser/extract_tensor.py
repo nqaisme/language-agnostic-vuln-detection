@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from tree_sitter import Language, Parser
+import tree_sitter_language_pack as tslp
 from .utils import remove_comments_and_docstrings, tree_to_token_index, index_to_code_token
 from .DFG import DFG_c_cpp
 
@@ -8,14 +9,12 @@ from .DFG import DFG_c_cpp
 
 
 class GraphCodeBERTExtractor:
-    def __init__(self, tokenizer, parser_path='parser/my-languages.so', lang='c', code_length=256, data_flow_length=64):
+    def __init__(self, tokenizer, lang='c', code_length=256, data_flow_length=64):
         self.tokenizer = tokenizer
         self.code_length = code_length
         self.data_flow_length = data_flow_length
         
-        LANGUAGE = Language(parser_path, lang)
-        self.parser = Parser()
-        self.parser.set_language(LANGUAGE)
+        self.parser = tslp.get_parser(lang)
         self.lang = lang
 
 
