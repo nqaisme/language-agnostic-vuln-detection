@@ -21,7 +21,7 @@ class cb_input_extractor:
             source_code,
             padding='max_length',
             truncation=True,
-            max_length=self.max_length,
+            max_length=self.code_length,
             return_tensor='pt'
         )
         

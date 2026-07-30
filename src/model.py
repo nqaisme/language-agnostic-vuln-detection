@@ -49,7 +49,6 @@ class extractor:
                 ext = cb_input_extractor(
                     tokenizer=self.tokenizer,
                     code_length=self.max_length
-                    
                 )
         inputs = ext(source_code=source_codes)
         with torch.no_grad():
