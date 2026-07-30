@@ -1,22 +1,59 @@
 import torch
 import numpy as np
-from tree_sitter import Language, Parser
 import tree_sitter_language_pack as tslp
 from .utils import remove_comments_and_docstrings, tree_to_token_index, index_to_code_token
 from .DFG import DFG_c_cpp
 
 
+class cb_input_extractor:
+    def __init__(self, tokenizer, code_length: int = 512):
+        try:
+            assert code_length > 0
+        except:
+            code_length = 512
+        
+        self.tokenizer = tokenizer
+        self.code_length = code_length
+    
+    def __call__(self, source_code):
+        
+        inputs = self.tokenizer(
+            source_code,
+            padding='max_length',
+            truncation=True,
+            max_length=self.max_length,
+            return_tensor='pt'
+        )
+        
+        return {
+            'input_ids': inputs['input_ids'],
+            'attention_mask': inputs['attention_mask']
+        }
 
 
-class GraphCodeBERTExtractor:
-    def __init__(self, tokenizer, lang='c', code_length=256, data_flow_length=64):
+# extractor for GraphCodeBERT's inputs
+# concludes: input_ids, position_ids, attn_mask
+# ref: https://github.com/microsoft/CodeBERT/blob/master/GraphCodeBERT
+
+class gcb_input_extractor:
+    def __init__(self, tokenizer, lang: str ='c', code_length: int = 512, data_flow_length: int = 64):
+        
+        try:
+            assert all(
+                lang in ['c', 'cpp'],
+                code_length > 0 and data_flow_length > 0
+            )
+        except:
+            lang = 'c'
+            code_length = 512
+            data_flow_length = 64
+
         self.tokenizer = tokenizer
         self.code_length = code_length
         self.data_flow_length = data_flow_length
         
         self.parser = tslp.get_parser(lang)
         self.lang = lang
-
 
 
     def extract_dataflow(self, code):
@@ -37,7 +74,6 @@ class GraphCodeBERTExtractor:
                 index_to_code[index] = (idx, code_tok)  
                 
             try:
-                
                 DFG, _ = DFG_c_cpp(root_node, index_to_code, {}) 
             except Exception:
                 DFG = []
@@ -56,6 +92,8 @@ class GraphCodeBERTExtractor:
             return code_tokens, new_DFG
         except Exception:
             return [], []
+
+            
     def __call__(self, source_code):
         code_tokens, dfg = self.extract_dataflow(source_code)
 
@@ -122,5 +160,5 @@ class GraphCodeBERTExtractor:
         return {
             'input_ids': torch.tensor([source_ids]),
             'position_ids': torch.tensor([position_idx]),
-            'attn_mask': torch.tensor([attn_mask])
+            'attention_mask': torch.tensor([attn_mask])
         }
