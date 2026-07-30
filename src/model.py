@@ -1,11 +1,16 @@
 from parser.input_extractor import gcb_input_extractor, cb_input_extractor
 from transformers import AutoTokenizer, AutoModel
-import torch, logging, VARS
 from typing import Tuple, List
-logging
+import torch.nn.functional as F
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
+from dataclasses import dataclass
+import torch, VARS, numpy as np, joblib, tqdm
 
 class extractor:
-
     def __init__(self, model_name: str = 'microsoft/codebert-base', max_length: int = 512, batch_size: int = 64):
         
         try:
@@ -29,7 +34,7 @@ class extractor:
         self.model.eval()
     
     
-    def extract(self, source_codes: str| List[str], task: str = 'classificaiton') -> Tuple[torch.Tensor, torch.Tensor]:
+    def __call__(self, source_codes: str| List[str], task: str = 'classificaiton') -> Tuple[torch.Tensor, torch.Tensor] | List[torch.Tensor]:
 
         try:
             assert task in ['classification', 'token_embedding']
@@ -50,21 +55,134 @@ class extractor:
                     tokenizer=self.tokenizer,
                     code_length=self.max_length
                 )
-        inputs = ext(source_code=source_codes)
-        with torch.no_grad():
-            outputs = self.model(
-                **inputs,
-                output_hidden_states=True
-            )
         
+        if isinstance(source_codes, str): source_codes = [source_codes]
+
+        results = []
+        
+        for i in tqdm.trange(0, len(source_codes), step=self.batch_size):
+            
+            batch_codes = source_codes[i: i + self.batch_size]
+            
+            inputs = ext(source_codes=batch_codes)
+            inputs = {k : v.to(self.device) for k, v in inputs.items()}
+
+            with torch.no_grad():
+                outputs = self.model(
+                    **inputs,
+                    output_hidden_states=True
+                )
+        
+            if task == 'classification':
+                results.append(outputs.last_hidden_state[:, 0, :].cpu())
+            
+            else:
+                batch_states = outputs.last_hidden_state.cpu()
+                batch_masks = inputs['attention_mask'].cpu()
+                
+                for j in range(len(batch_codes)):
+                    real_length = batch_masks.sum().item()
+                    results.append(batch_states[j, 1 : real_length - 1, :])
+
         if task == 'classification':
-            return outputs.last_hidden_states[:, 0, :]
+            return torch.cat(results, dim=0)
+        return results
+
+
+class neutral_feature_builder:
+    def __init__(self, norm="l2", fuse="concat", alpha=0.5, pca_dim=None):
+        self.norm = norm.lower() if norm else None
+        self.fuse = fuse.lower()
+        self.alpha = alpha
+        self.pca_dim = pca_dim
         
-        # ignoring [PAD token
-        real_token_length = inputs['attention_mask'][0].sum().item()
-        # drop <s> and </s>
-        return outputs.last_hidden_states[:, 1: real_token_length - 1, :]
+        self.pca = PCA(n_components=pca_dim) if pca_dim is not None else None
+        self.is_pca_fitted = False
+
+    def _normalize(self, E: torch.Tensor) -> torch.Tensor:
+
+        if self.norm is None:
+            return E
+        
+        if self.norm == "l2":
+            return F.normalize(E, p=2, dim=-1)
+        
+        elif self.norm == "minmax":
+            min_val = E.min(dim=-1, keepdim=True).values
+            max_val = E.max(dim=-1, keepdim=True).values
+            eps = 1e-8
+            return (E - min_val) / (max_val - min_val + eps)
+        
+        else:
+            raise ValueError(f"The normalization method - {self.norm} is not supported!!\n")
+
+    def fit_pca(self, F_raw_samples: torch.Tensor):
+        if self.pca is not None:
+            if isinstance(F_raw_samples, torch.Tensor):
+                F_raw_samples = F_raw_samples.detach().cpu().numpy()
+            
+            self.pca.fit(F_raw_samples)
+            self.is_pca_fitted = True
+
+    def build(self, E_C: torch.Tensor, E_G: torch.Tensor) -> torch.Tensor:
+
+        is_1d = (E_C.dim() == 1)
+        if is_1d:
+            E_C = E_C.unsqueeze(0)
+            E_G = E_G.unsqueeze(0)
+
+        E_C_norm = self._normalize(E_C)
+        E_G_norm = self._normalize(E_G)
+
+        if self.fuse == "concat":
+            F_raw = torch.cat([E_C_norm, E_G_norm], dim=-1)
+            
+        elif self.fuse == "average":
+            if E_C_norm.shape != E_G_norm.shape:
+                raise ValueError("The dimensions must match when performing AVERAGE fusion!!\n")
+            F_raw = (E_C_norm + E_G_norm) / 2.0
+            
+        elif self.fuse == "weighted":
+            if E_C_norm.shape != E_G_norm.shape:
+                raise ValueError("The dimensions must match when performing WEIGHTED fusion!!\n")
+            F_raw = self.alpha * E_C_norm + (1.0 - self.alpha) * E_G_norm
+            
+        else:
+            raise ValueError(f"The fusion strategy - {self.fuse} is not supported!!\n")
+
+        if self.pca_dim is not None:
+            if not self.is_pca_fitted:
+                raise RuntimeError("PCA has not been fitted yet! Please call fit_pca() before building!!\n")
+            
+            device = F_raw.device
+            F_raw_np = F_raw.detach().cpu().numpy()
+            F_np = self.pca.transform(F_raw_np)
+            
+            F = torch.tensor(F_np, dtype=torch.float32, device=device)
+        else:
+            F = F_raw
+
+        if is_1d:
+            F = F.squeeze(0)
+
+        return F
+    
+
+    
+class simple_classifier:
+    def __init__(self, random_state: int = 42, max_iter: int = 1000):
+        self.model = LogisticRegression(max_iter=max_iter, random_state=random_state)
+        self.random_state = random_state
+    
+    
+    def train(self, train_dataset, **kwargs) -> None:
+        train_sampler = RandomSampler(train_dataset)
+        train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=kwargs.get('batch_size', VARS.BATCH_SIZE), num_workers=4)
+        pass
 
 
-            
-            
+
+@dataclass
+class input_features:
+    embedding: torch.Tensor
+    label: str| int
