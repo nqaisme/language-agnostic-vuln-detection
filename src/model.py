@@ -31,7 +31,7 @@ class extractor:
         self.max_length = max_length
         self.batch_size = batch_size
         
-        self.model.eval()
+        self.model.to(self.device).eval()
     
     
     def __call__(self, source_codes: str| List[str], task: str = 'classificaiton') -> Tuple[torch.Tensor, torch.Tensor] | List[torch.Tensor]:
@@ -60,7 +60,7 @@ class extractor:
 
         results = []
         
-        for i in tqdm.trange(0, len(source_codes), step=self.batch_size):
+        for i in tqdm.trange(0, len(source_codes), self.batch_size):
             
             batch_codes = source_codes[i: i + self.batch_size]
             
@@ -126,6 +126,9 @@ class neutral_feature_builder:
 
     def build(self, E_C: torch.Tensor, E_G: torch.Tensor) -> torch.Tensor:
 
+        if E_C.shape[0] != E_G.shape[0] and E_C.dim() > 1:
+            raise ValueError(f"Batch size mismatch: E_C has {E_C.shape[0]} samples, but E_G has {E_G.shape[0]} samples!!")
+
         is_1d = (E_C.dim() == 1)
         if is_1d:
             E_C = E_C.unsqueeze(0)
@@ -154,11 +157,13 @@ class neutral_feature_builder:
             if not self.is_pca_fitted:
                 raise RuntimeError("PCA has not been fitted yet! Please call fit_pca() before building!!\n")
             
-            device = F_raw.device
+            orig_device = F_raw.device
+            orig_dtype = F_raw.dtype
+            
             F_raw_np = F_raw.detach().cpu().numpy()
             F_np = self.pca.transform(F_raw_np)
             
-            F = torch.tensor(F_np, dtype=torch.float32, device=device)
+            F = torch.from_numpy(F_np).to(device=orig_device, dtype=orig_dtype)
         else:
             F = F_raw
 
