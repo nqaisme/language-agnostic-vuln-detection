@@ -14,10 +14,10 @@ class extractor:
     def __init__(self, model_name: str = 'microsoft/codebert-base', max_length: int = 512, batch_size: int = 64):
         
         try:
-            assert all(
+            assert all([
                 model_name in ['microsoft/codebert-base', 'microsoft/graphcodebert-base'],
                 max_length > 0 and batch_size > 0
-            )
+            ])
         except:
             model_name = 'microsoft/codebert-base'
             max_length = 512
@@ -81,7 +81,7 @@ class extractor:
                 batch_masks = inputs['attention_mask'].cpu()
                 
                 for j in range(len(batch_codes)):
-                    real_length = batch_masks.sum().item()
+                    real_length = (batch_masks[j] != 0).sum().item()
                     results.append(batch_states[j, 1 : real_length - 1, :])
 
         if task == 'classification':

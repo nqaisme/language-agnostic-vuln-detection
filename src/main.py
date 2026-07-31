@@ -1,249 +1,66 @@
-from model import extractor
+from model import extractor, neutral_feature_builder
+from datasets import load_dataset
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import precision_score, recall_score, f1_score
+import VARS, numpy as np
 
-c_snippets = [
-    """
-#include <stdio.h>
 
-int main() {
-    printf("Hello, World!\\n");
-    return 0;
-}
-""",
 
-    """
-#include <stdio.h>
+def evaluate(y_true: np.ndarray, y_pred: np.ndarray, average: str = 'binary') -> dict:
+    precision = precision_score(y_true, y_pred, average=average, zero_division=0)
+    recall = recall_score(y_true, y_pred, average=average, zero_division=0)
+    f1 = f1_score(y_true, y_pred, average=average, zero_division=0)
 
-int main() {
-    int age = 20;
-    float height = 1.75;
-    char grade = 'A';
-
-    printf("Age: %d\\n", age);
-    printf("Height: %.2f\\n", height);
-    printf("Grade: %c\\n", grade);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int main() {
-    int number = 10;
-
-    if (number > 0) {
-        printf("Positive\\n");
-    } 
-    else if (number < 0) {
-        printf("Negative\\n");
-    } 
-    else {
-        printf("Zero\\n");
+    return {
+        'precision': round(precision, 4),
+        'recall': round(recall, 4),
+        'f1': round(f1, 4)
     }
 
-    return 0;
-}
-""",
 
-    """
-#include <stdio.h>
 
-int main() {
+ds_train = load_dataset('colin/PrimeVul', 'paired', split='train').select_columns(['target', 'func'])
+ds_test = load_dataset('colin/PrimeVul', 'paired', split='test').select_columns(['target', 'func'])
 
-    for (int i = 0; i < 10; i++) {
-        printf("%d\\n", i);
-    }
 
-    return 0;
-}
-""",
 
-    """
-#include <stdio.h>
 
-int add(int a, int b) {
-    return a + b;
+cx = extractor(model_name=VARS.CB, max_length=VARS.MAX_LENGTH, batch_size=VARS.BATCH_SIZE)
+gcx = extractor(model_name=VARS.GCB, max_length=VARS.MAX_LENGTH, batch_size=VARS.BATCH_SIZE)
+
+
+ecs = cx(list(ds_train['func']))
+egcs = gcx(list(ds_train['func']))
+nf = neutral_feature_builder().build(ecs, egcs)
+
+feat_tests = {
+    'ec': cx(list(ds_test['func'])),
+    'eg': gcx(list(ds_test['func'])),
 }
 
-int main() {
+feat_tests['nf'] = neutral_feature_builder().build(
+    feat_tests.get('ec'),
+    feat_tests.get('eg')
+)
 
-    int result = add(5, 3);
 
-    printf("%d\\n", result);
+lr1 = LogisticRegression(max_iter=VARS.MAX_ITER)
+lr2 = LogisticRegression(max_iter=VARS.MAX_ITER)
+lr3 = LogisticRegression(max_iter=VARS.MAX_ITER)
 
-    return 0;
-}
-""",
 
-    """
-#include <stdio.h>
+y_train, y_test = np.array(ds_train['target']), np.array(ds_test['target'])
+lr1.fit(ecs, y_train)
+lr2.fit(egcs, y_train)
+lr3.fit(nf, y_train)
 
-int main() {
 
-    int value = 100;
-
-    int *ptr = &value;
-
-    printf("Value: %d\\n", *ptr);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int main() {
-
-    int numbers[5] = {1,2,3,4,5};
-
-    for(int i = 0; i < 5; i++) {
-        printf("%d\\n", numbers[i]);
-    }
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-#include <stdlib.h>
-
-int main() {
-
-    int *ptr;
-
-    ptr = malloc(sizeof(int));
-
-    *ptr = 50;
-
-    printf("%d\\n", *ptr);
-
-    free(ptr);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int main() {
-
-    char buffer[10];
-
-    gets(buffer);
-
-    printf("%s\\n", buffer);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int main() {
-
-    char buffer[20];
-
-    fgets(buffer, sizeof(buffer), stdin);
-
-    printf("%s", buffer);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int main()
-{
-    FILE *file;
-
-    char text[100];
-
-    file = fopen("data.txt", "r");
-
-    if(file != NULL) {
-        fgets(text, sizeof(text), file);
-        printf("%s", text);
-        fclose(file);
-    }
-
-    return 0;
-}
-""",
-
-    """
-#include <stdlib.h>
-
-int main()
-{
-    char *buffer = malloc(100);
-
-    free(buffer);
-
-    free(buffer);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-#include <stdlib.h>
-
-int main()
-{
-    int *ptr = malloc(sizeof(int));
-
-    *ptr = 10;
-
-    free(ptr);
-
-    printf("%d", *ptr);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int main()
-{
-    int *ptr = NULL;
-
-    printf("%d", *ptr);
-
-    return 0;
-}
-""",
-
-    """
-#include <stdio.h>
-
-int factorial(int n)
-{
-    if(n <= 1)
-        return 1;
-
-    return n * factorial(n-1);
+res = {
+    'ec': evaluate(y_test, lr1.predict(feat_tests['ec'])),
+    'eg': evaluate(y_test, lr2.predict(feat_tests['eg'])),
+    'nf': evaluate(y_test, lr3.predict(feat_tests['nf']))
 }
 
-int main()
-{
-    printf("%d", factorial(5));
 
-    return 0;
-}
-"""
-]
-hh = extractor(model_name='microsoft/graphcodebert-base')
-zh = hh(c_snippets)
-
-print(zh.shape)
-print(len(c_snippets))
+for k, v in res.items():
+    print(f'{k}: {v}\n\n')

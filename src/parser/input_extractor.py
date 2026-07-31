@@ -37,10 +37,10 @@ class gcb_input_extractor:
     def __init__(self, tokenizer, lang: str ='c', code_length: int = 512, data_flow_length: int = 64):
         
         try:
-            assert all(
+            assert all([
                 lang in ['c', 'cpp'],
                 code_length > 0 and data_flow_length > 0
-            )
+            ])
         except:
             lang = 'c'
             code_length = 512
@@ -168,5 +168,5 @@ class gcb_input_extractor:
         return {
             'input_ids': torch.tensor(batch_input_ids, dtype=torch.long),
             'position_ids': torch.tensor(batch_position_ids, dtype=torch.long),
-            'attention_mask': torch.tensor(batch_attention_mask, dtype=torch.bool)
+            'attention_mask': torch.tensor(batch_attention_mask, dtype=torch.bool).unsqueeze(1)
         }
