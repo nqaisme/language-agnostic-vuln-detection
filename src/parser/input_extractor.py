@@ -168,5 +168,5 @@ class gcb_input_extractor:
         return {
             'input_ids': torch.tensor(batch_input_ids, dtype=torch.long),
             'position_ids': torch.tensor(batch_position_ids, dtype=torch.long),
-            'attention_mask': torch.tensor(batch_attention_mask, dtype=torch.bool).unsqueeze(1)
+            'attention_mask': torch.tensor(np.array(batch_attention_mask), dtype=torch.bool).unsqueeze(1)
         }
