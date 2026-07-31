@@ -8,7 +8,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from dataclasses import dataclass
-import torch, VARS, numpy as np, joblib, tqdm
+import torch, VARS, numpy as np, joblib, tqdm, os, datetime
 
 class extractor:
     def __init__(self, model_name: str = 'microsoft/codebert-base', max_length: int = 512, batch_size: int = 64):
@@ -171,23 +171,38 @@ class neutral_feature_builder:
             F = F.squeeze(0)
 
         return F
-    
 
-    
+
 class simple_classifier:
     def __init__(self, random_state: int = 42, max_iter: int = 1000):
-        self.model = LogisticRegression(max_iter=max_iter, random_state=random_state)
         self.random_state = random_state
+        self.max_iter = max_iter
     
+    def train(self, X_train, y_train, **kwargs):
+        model = LogisticRegression(
+            random_state=self.random_state,
+            max_iter=self.max_iter,
+            class_weight='balanced'
+        )
+        
+        model.fit(X_train, y_train)
+        
+        
+        output_dir = kwargs.get('output_dir', os.path.join(os.path.abspath, 'results'))
+        file_name = f'{kwargs.get('dataset')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
+        joblib.dump(model, os.path.join(output_dir, file_name))
     
-    def train(self, train_dataset, **kwargs) -> None:
-        train_sampler = RandomSampler(train_dataset)
-        train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=kwargs.get('batch_size', VARS.BATCH_SIZE), num_workers=4)
-        pass
+    @staticmethod
+    def evaluate(self, weights_file, X, y_true, average = 'binary'):
+        model = joblib.load(weights_file)
+        y_pred = model.predict(X)
+        precision = precision_score(y_true, y_pred, average=average, zero_division=0)
+        recall = recall_score(y_true, y_pred, average=average, zero_division=0)
+        f1 = f1_score(y_true, y_pred, average=average, zero_division=0)
 
-
-
-@dataclass
-class input_features:
-    embedding: torch.Tensor
-    label: str| int
+        return {
+            'precision': round(precision, 4),
+            'recall': round(recall, 4),
+            'f1': round(f1, 4)
+        }
+        
