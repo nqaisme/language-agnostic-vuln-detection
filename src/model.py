@@ -191,9 +191,11 @@ class simple_classifier:
         output_dir = kwargs.get('output_dir', os.path.join(os.path.abspath, 'results'))
         file_name = f'{kwargs.get('dataset')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
         joblib.dump(model, os.path.join(output_dir, file_name))
+        
+        return os.path.join(output_dir, file_name)
     
     @staticmethod
-    def evaluate(self, weights_file, X, y_true, average = 'binary'):
+    def evaluate(weights_file, X, y_true, average = 'binary'):
         model = joblib.load(weights_file)
         y_pred = model.predict(X)
         precision = precision_score(y_true, y_pred, average=average, zero_division=0)
