@@ -37,7 +37,7 @@ def build_features(dataset):
                 'eg'
             ),
             'nf': ds_sample(
-                builder.build(*(feats['train'].vaules()))
+                builder.build(*(feats['train'].values()()))
             )
         },
         'test': {
@@ -52,7 +52,7 @@ def build_features(dataset):
                 'eg'
             ),
             'nf': ds_sample(
-                builder.build(*(feats['test'].vaules()))
+                builder.build(*(feats['test'].values()))
             )
         }
     }
