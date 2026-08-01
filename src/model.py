@@ -192,8 +192,11 @@ class simple_classifier:
         model.fit(sample.X, sample.y)
         
         
-        output_dir = kwargs.get('output_dir', os.path.join(os.path.abspath(__file__), 'results'))
+        output_dir = kwargs.get('output_dir', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results'))
         file_name = f'{kwargs.get('dataset')}_{sample.type}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         joblib.dump(model, os.path.join(output_dir, file_name))
         
         print(f'model saving completed at {os.path.join(output_dir, file_name)}!\n')
