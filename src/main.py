@@ -92,6 +92,12 @@ def parse_args():
         help='name of column which contains label of source code'
     )
     
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        default='/content/drive/MyDrive'
+    )
+    
     return parser.parse_args()
 
 def main(args):
