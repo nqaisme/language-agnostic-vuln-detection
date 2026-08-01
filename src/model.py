@@ -192,7 +192,7 @@ class simple_classifier:
         model.fit(sample.X, sample.y)
         
         
-        output_dir = kwargs.get('output_dir', os.path.join(os.path.abspath, 'results'))
+        output_dir = kwargs.get('output_dir', os.path.join(os.path.abspath(__file__), 'results'))
         file_name = f'{kwargs.get('dataset')}_{sample.type}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
         joblib.dump(model, os.path.join(output_dir, file_name))
         
