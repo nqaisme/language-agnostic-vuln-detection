@@ -1,4 +1,4 @@
-from model import extractor, neutral_feature_builder, simple_classifier
+from model import extractor, neutral_feature_builder, simple_classifier, ds_sample
 from datasets import load_dataset
 import VARS, numpy as np
 
@@ -8,40 +8,72 @@ def build_features(dataset):
     gcx = extractor(VARS.GCB)
     builder = neutral_feature_builder()
     
-    train_feat = {
-        'ec': cx(list(dataset['train']['function'])),
-        'eg': gcx(list(dataset['train']['function']))
-    }
-    train_feat['nf'] = builder.build(train_feat['ec'], train_feat['eg'])
-    
-    
-    test_feat = {
-        'ec': cx(list(dataset['test']['function'])),
-        'eg': gcx(list(dataset['test']['function']))
-    }
-    test_feat['nf'] = builder.build(test_feat['ec'], test_feat['eg'])
+    train_codes = list(dataset['train']['function'])
+    test_codes = list(dataset['test']['function'])
+    y_train, y_test = np.array(dataset['train']['label']), np.array(dataset['test']['label'])
 
+    feats = {
+        'train': {
+            'ec': cx(train_codes),
+            'eg': gcx(train_codes)
+        },
+        'test': {
+            'ec': cx(test_codes),
+            'eg': gcx(test_codes)
+        }
+    }
+    
+    
     return {
-        'x_train': train_feat,
-        'x_test': test_feat,
-        'y_train': np.array(dataset['train']['label']),
-        'y_test': np.array(dataset['test']['label'])
+        'train': {
+            'ec': ds_sample(
+                feats['train']['ec'],
+                y_train,
+                'ec'
+            ),
+            'eg': ds_sample(
+                feats['train']['eg'],
+                y_train,
+                'eg'
+            ),
+            'nf': ds_sample(
+                builder.build(*(feats['train'].vaules()))
+            )
+        },
+        'test': {
+            'ec': ds_sample(
+                feats['test']['ec'],
+                y_test,
+                'ec'
+            ),
+            'eg': ds_sample(
+                feats['test']['eg'],
+                y_test,
+                'eg'
+            ),
+            'nf': ds_sample(
+                builder.build(*(feats['test'].vaules()))
+            )
+        }
     }
 
 
 def main():
-    primevul = load_dataset('colin/PrimeVul').select_columns(['func', 'target']).rename_columns({'func': 'function', 'target': 'label'})
+    primevul = load_dataset('colin/PrimeVul', 'paired').select_columns(['func', 'target']).rename_columns({'func': 'function', 'target': 'label'})
     
     features = build_features(primevul)
 
     classifier = simple_classifier()
 
-    f = classifier.train(features['x_train'], features['y_train'], **{'dataset': 'primevul'})
-
-    res = simple_classifier.evaluate(f, features['x_test'], features['y_test'])
+    '''
+    train phase
+    '''
+    results = {}
+    for type in ['ec', 'eg', 'nf']:
+        results[type] = classifier.train(features['train'][type])
     
-    print(f'PrimeVul: {res}')
-    
+    for type in ['ec', 'eg', 'nf']:
+        print(simple_classifier.evaluate(results['test'][type]))
     
 if __name__ == '__main__':
     main()

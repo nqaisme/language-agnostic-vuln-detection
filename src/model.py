@@ -1,6 +1,6 @@
 from parser.input_extractor import gcb_input_extractor, cb_input_extractor
 from transformers import AutoTokenizer, AutoModel
-from typing import Tuple, List
+from typing import Tuple, List, Any
 import torch.nn.functional as F
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
@@ -178,19 +178,21 @@ class simple_classifier:
         self.random_state = random_state
         self.max_iter = max_iter
     
-    def train(self, X_train, y_train, **kwargs):
+    def train(self, sample: ds_sample, **kwargs):
         model = LogisticRegression(
             random_state=self.random_state,
             max_iter=self.max_iter,
             class_weight='balanced'
         )
         
-        model.fit(X_train, y_train)
+        model.fit(sample.X, sample.y)
         
         
         output_dir = kwargs.get('output_dir', os.path.join(os.path.abspath, 'results'))
-        file_name = f'{kwargs.get('dataset')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
+        file_name = f'{kwargs.get('dataset')}_{sample.type}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
         joblib.dump(model, os.path.join(output_dir, file_name))
+        
+        print(f'model saving completed at {os.path.join(output_dir, file_name)}!\n')
         
         return os.path.join(output_dir, file_name)
     
@@ -208,3 +210,9 @@ class simple_classifier:
             'f1': round(f1, 4)
         }
         
+
+@dataclass
+class ds_sample:
+    X: Any
+    y: Any
+    type: str
