@@ -1,6 +1,6 @@
 from model import extractor, neutral_feature_builder, simple_classifier, ds_sample
 from datasets import load_dataset
-import VARS, numpy as np
+import VARS, numpy as np, argparse
 
 
 def build_features(dataset):
@@ -61,11 +61,47 @@ def build_features(dataset):
         }
     }
 
-
-def main():
-    primevul = load_dataset('colin/PrimeVul', 'paired').select_columns(['func', 'target']).rename_columns({'func': 'function', 'target': 'label'})
+def parse_args():
+    parser = argparse.ArgumentParser()
     
-    features = build_features(primevul)
+    
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        default='colin/PrimeVul',
+        help='huggingface dataset'
+    )
+    
+    parser.add_argument(
+        '--subset',
+        type=str,
+        help='subset of the given dataset'
+    )
+    
+    parser.add_argument(
+        '--source-col',
+        type=str,
+        default='func',
+        help='name of column which contains source code'
+    )
+
+    parser.add_argument(
+        '--label-col',
+        type=str,
+        default='target',
+        help='name of column which contains label of source code'
+    )
+    
+    return parser.parse_args()
+
+def main(args):
+    datset = load_dataset(args.dataset, args.subset).select_columns(
+        [args.source_col, args.label_col]
+        ).rename_columns(
+            {args.source_col: 'function', args.label_col: 'label'}
+            )
+    
+    features = build_features(datset)
 
     classifier = simple_classifier()
 
@@ -80,4 +116,5 @@ def main():
         print(simple_classifier.evaluate(results[type], features['test'][type]))
     
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    main(args)
