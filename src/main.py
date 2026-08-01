@@ -73,7 +73,7 @@ def main():
         results[type] = classifier.train(features['train'][type])
     
     for type in ['ec', 'eg', 'nf']:
-        print(simple_classifier.evaluate(results['test'][type]))
+        print(simple_classifier.evaluate(results[type], features['test'][type]))
     
 if __name__ == '__main__':
     main()

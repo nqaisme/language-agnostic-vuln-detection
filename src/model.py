@@ -171,7 +171,11 @@ class neutral_feature_builder:
             F = F.squeeze(0)
 
         return F
-
+@dataclass
+class ds_sample:
+    X: Any
+    y: Any
+    type: str
 
 class simple_classifier:
     def __init__(self, random_state: int = 42, max_iter: int = 1000):
@@ -197,12 +201,12 @@ class simple_classifier:
         return os.path.join(output_dir, file_name)
     
     @staticmethod
-    def evaluate(weights_file, X, y_true, average = 'binary'):
+    def evaluate(weights_file, sample: ds_sample, average = 'binary'):
         model = joblib.load(weights_file)
-        y_pred = model.predict(X)
-        precision = precision_score(y_true, y_pred, average=average, zero_division=0)
-        recall = recall_score(y_true, y_pred, average=average, zero_division=0)
-        f1 = f1_score(y_true, y_pred, average=average, zero_division=0)
+        y_pred = model.predict(sample.X)
+        precision = precision_score(sample.y, y_pred, average=average, zero_division=0)
+        recall = recall_score(sample.y, y_pred, average=average, zero_division=0)
+        f1 = f1_score(sample.y, y_pred, average=average, zero_division=0)
 
         return {
             'precision': round(precision, 4),
@@ -211,8 +215,3 @@ class simple_classifier:
         }
         
 
-@dataclass
-class ds_sample:
-    X: Any
-    y: Any
-    type: str
