@@ -116,7 +116,7 @@ def main(args):
     '''
     results = {}
     for type in ['ec', 'eg', 'nf']:
-        results[type] = classifier.train(features['train'][type])
+        results[type] = classifier.train(features['train'][type], **{"output_dir": args.output_dir})
     
     for type in ['ec', 'eg', 'nf']:
         print(simple_classifier.evaluate(results[type], features['test'][type]))
