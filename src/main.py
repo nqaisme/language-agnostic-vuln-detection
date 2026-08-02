@@ -12,9 +12,10 @@ def save_tensor(tensors: dict, args):
         
     
     for split, ebds in tensors.items():
-        os.makedirs(os.path.join(output_dir, split), exist_ok=True)
+        split_dir = os.path.join(output_dir, split)
+        os.makedirs(split_dir, exist_ok=True)
         for type, ebd in ebds.items():
-            torch.save(ebd, f'{args.dataset}_{type}.pt')
+            torch.save(ebd, os.path.join(split_dir, f'{args.dataset}_{type}.pt'))
             
 
     print(f'Embedding tensor saved successfully to {output_dir}!\n')
