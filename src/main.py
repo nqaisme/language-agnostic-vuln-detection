@@ -45,7 +45,7 @@ def build_features(dataset, args):
 
             result[split][type] = ds_sample(
                 ebd,
-                np(dataset[split]['label']),
+                np.array(dataset[split]['label']),
                 type
             )
             
