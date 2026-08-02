@@ -1,8 +1,9 @@
 from model import extractor, neutral_feature_builder, simple_classifier, ds_sample
 from datasets import load_dataset
 import VARS, numpy as np, argparse, os, torch, datetime
+from tmp import tmp_dataset
 
-def save_tensor(tensors: dict, args):
+def save_tensor(tensor: dict, split: str, type: str, args):
     if not args.output_dir:
         output_dir = os.path.join(os.getcwd(), 'tensors')
     else:
@@ -11,11 +12,9 @@ def save_tensor(tensors: dict, args):
     os.makedirs(output_dir, exist_ok=True)
         
     
-    for split, ebds in tensors.items():
-        split_dir = os.path.join(output_dir, split)
-        os.makedirs(split_dir, exist_ok=True)
-        for type, ebd in ebds.items():
-            torch.save(ebd, os.path.join(split_dir, f'{type}.pt'))
+    split_dir = os.path.join(output_dir, split)
+    os.makedirs(split_dir, exist_ok=True)
+    torch.save(tensor, os.path.join(split_dir, f'{type}.pt'))
             
 
     print(f'Embedding tensor saved successfully to {output_dir}!\n')
@@ -23,65 +22,30 @@ def save_tensor(tensors: dict, args):
         
 
 def build_features(dataset, args):
-    cx = extractor(VARS.CB)
-    gcx = extractor(VARS.GCB)
+    cx = extractor(VARS.CB, batch_size=args.batch_size, max_length=args.max_length)
+    gcx = extractor(VARS.GCB, batch_size=args.batch_size, max_length=args.max_length)
     builder = neutral_feature_builder()
     
-    train_codes = list(dataset['train']['function'])
-    test_codes = list(dataset['test']['function'])
-    y_train, y_test = np.array(dataset['train']['label']), np.array(dataset['test']['label'])
+    
+    
+    result = {}
+    
+    
+    for split in ['train', 'test']:
+        result[split] = {}
+        for type in ['ec', 'eg', 'nf']:
+            match type:
+                case 'ec':
+                    ebd = cx(list(dataset[split]['function']))
+                case 'eg':
+                    ebd = gcx(list(dataset[split]['function']))
+                case 'nf':
+                    ebd = builder.build(result[split]['ec'], result[split]['eg'])
+                
 
-    feats = {
-        'train': {
-            'ec': cx(train_codes),
-            'eg': gcx(train_codes)
-        },
-        'test': {
-            'ec': cx(test_codes),
-            'eg': gcx(test_codes)
-        }
-    }
-    
-    
-    result = {
-        'train': {
-            'ec': ds_sample(
-                feats['train']['ec'],
-                y_train,
-                'ec'
-            ),
-            'eg': ds_sample(
-                feats['train']['eg'],
-                y_train,
-                'eg'
-            ),
-            'nf': ds_sample(
-                builder.build(*(list(feats['train'].values()))),
-                y_train,
-                'nf'
-            )
-        },
-        'test': {
-            'ec': ds_sample(
-                feats['test']['ec'],
-                y_test,
-                'ec'
-            ),
-            'eg': ds_sample(
-                feats['test']['eg'],
-                y_test,
-                'eg'
-            ),
-            'nf': ds_sample(
-                builder.build(*(list(feats['test'].values()))),
-                y_test,
-                'nf'
-            )
-        }
-    }
-    
-    save_tensor(result, args)
-
+            result[split][type] = ebd
+            save_tensor(ebd, split, type, args)
+            
     return result
 
 def parse_args():
@@ -137,24 +101,63 @@ def parse_args():
         default=42
     )
     
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=64,
+    )
+    
+    parser.add_argument(
+        '--max-length',
+        type=int,
+        default=512
+    )
+    
+    parser.add_argument(
+        '--norm',
+        type=str,
+        default='l2',
+        choices=['l2', 'minmax']
+    )
+    
+    parser.add_argument(
+        '--fuse',
+        type=str,
+        default='concat',
+        choices=['concat', 'average', 'weighted']
+    )
+    
+    parser.add_argument(
+        '--alpha',
+        type=float,
+        default=0.5
+    )
+    
+    parser.add_argument(
+        '--pca-dim',
+        type=int,
+        required=False
+    )
+    
     return parser.parse_args()
 
 def main(args):
+
     dataset = load_dataset(args.dataset, args.subset).select_columns(
         [args.source_col, args.label_col]
         ).rename_columns(
             {args.source_col: 'function', args.label_col: 'label'}
             )
-
-    '''
-    train phase
-    '''
     
+    
+
+            
     dir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     args.output_dir = os.path.join(args.output_dir, dir_name)
     
     features = build_features(dataset, args)
     classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
+
     results = {}
     for type in ['ec', 'eg', 'nf']:
         results[type] = classifier.train(features['train'][type], **{"output_dir": args.output_dir, 'dataset': args.dataset})
