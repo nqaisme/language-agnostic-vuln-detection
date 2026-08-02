@@ -4,7 +4,7 @@ from typing import Tuple, List, Any
 import torch.nn.functional as F
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from dataclasses import dataclass
@@ -183,24 +183,22 @@ class simple_classifier:
         self.max_iter = max_iter
     
     def train(self, sample: ds_sample, **kwargs):
-        model = LogisticRegression(
+        model = LinearSVC(
             random_state=self.random_state,
             max_iter=self.max_iter,
-            class_weight='balanced'
+            class_weight='balanced',
+            C=1.0
         )
         
         model.fit(sample.X, sample.y)
         
         
-        output_dir = kwargs.get('output_dir', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results'))
-        file_name = f'{kwargs.get('dataset')}_{sample.type}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}_weights.pkl'
-
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        output_dir = kwargs.get('output_dir', os.getcwd())
+        file_name = f'{kwargs.get('dataset')}_{sample.type}__weights.pkl'
+        os.makedirs(output_dir, exist_ok=True)
         joblib.dump(model, os.path.join(output_dir, file_name))
         
-        print(f'model saving completed at {os.path.join(output_dir, file_name)}!\n')
-        
+        print(f'Model\'s weights saved successfully to {os.path.join(output_dir, file_name)}!\n')
         return os.path.join(output_dir, file_name)
     
     @staticmethod

@@ -1,9 +1,27 @@
 from model import extractor, neutral_feature_builder, simple_classifier, ds_sample
 from datasets import load_dataset
-import VARS, numpy as np, argparse
+import VARS, numpy as np, argparse, os, torch, datetime
 
+def save_tensor(tensors: dict, args):
+    if not args.output_dir:
+        output_dir = os.path.join(os.getcwd(), 'tensors')
+    else:
+        output_dir = os.path.join(args.output_dir, 'tensors')
 
-def build_features(dataset):
+    os.makedirs(output_dir, exist_ok=True)
+        
+    
+    for split, ebds in tensors.items():
+        os.makedirs(os.path.join(output_dir, split), exist_ok=True)
+        for type, ebd in ebds.items():
+            torch.save(ebd, f'{args.dataset}_{type}.pt')
+            
+
+    print(f'Embedding tensor saved successfully to {output_dir}!\n')
+    
+        
+
+def build_features(dataset, args):
     cx = extractor(VARS.CB)
     gcx = extractor(VARS.GCB)
     builder = neutral_feature_builder()
@@ -24,7 +42,7 @@ def build_features(dataset):
     }
     
     
-    return {
+    result = {
         'train': {
             'ec': ds_sample(
                 feats['train']['ec'],
@@ -60,6 +78,10 @@ def build_features(dataset):
             )
         }
     }
+    
+    save_tensor(result, args)
+
+    return result
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -69,27 +91,31 @@ def parse_args():
         '--dataset',
         type=str,
         default='colin/PrimeVul',
-        help='huggingface dataset'
+        help='huggingface dataset',
+        required=True
     )
     
     parser.add_argument(
         '--subset',
         type=str,
-        help='subset of the given dataset'
+        help='subset of the given dataset',
+        required=False
     )
     
     parser.add_argument(
         '--source-col',
         type=str,
         default='func',
-        help='name of column which contains source code'
+        help='name of column which contains source code',
+        required=True
     )
 
     parser.add_argument(
         '--label-col',
         type=str,
         default='target',
-        help='name of column which contains label of source code'
+        help='name of column which contains label of source code',
+        required=True
     )
     
     parser.add_argument(
@@ -98,25 +124,41 @@ def parse_args():
         default='/content/drive/MyDrive'
     )
     
+    parser.add_argument(
+        '--max-iter',
+        type=int,
+        default=1000,
+    )
+    
+    parser.add_argument(
+        '--random-state',
+        type=int,
+        default=42
+    )
+    
     return parser.parse_args()
 
 def main(args):
-    datset = load_dataset(args.dataset, args.subset).select_columns(
+    dataset = load_dataset(args.dataset, args.subset).select_columns(
         [args.source_col, args.label_col]
         ).rename_columns(
             {args.source_col: 'function', args.label_col: 'label'}
             )
     
-    features = build_features(datset)
 
-    classifier = simple_classifier()
 
     '''
     train phase
     '''
+    
+    dir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+    args.output_dir = os.path.join(args.output_dir, dir_name)
+    
+    features = build_features(dataset, args)
+    classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
     results = {}
     for type in ['ec', 'eg', 'nf']:
-        results[type] = classifier.train(features['train'][type], **{"output_dir": args.output_dir})
+        results[type] = classifier.train(features['train'][type], **{"output_dir": args.output_dir, 'dataset': args.dataset})
     
     for type in ['ec', 'eg', 'nf']:
         print(simple_classifier.evaluate(results[type], features['test'][type]))
