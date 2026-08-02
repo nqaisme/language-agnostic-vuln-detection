@@ -40,10 +40,15 @@ def build_features(dataset, args):
                 case 'eg':
                     ebd = gcx(list(dataset[split]['function']))
                 case 'nf':
-                    ebd = builder.build(result[split]['ec'], result[split]['eg'])
+                    ebd = builder.build(result[split]['ec'].X, result[split]['eg'].X)
                 
 
-            result[split][type] = ebd
+            result[split][type] = ds_sample(
+                ebd,
+                np(dataset[split]['label']),
+                type
+            )
+            
             save_tensor(ebd, split, type, args)
             
     return result
