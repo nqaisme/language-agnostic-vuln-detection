@@ -17,7 +17,7 @@ def save_tensor(tensor: dict, split: str, type: str, args):
     torch.save(tensor, os.path.join(split_dir, f'{type}.pt'))
             
 
-    print(f'Embedding tensor saved successfully to {os.path.join(super, f'{type}.pt')}!\n')
+    print(f'Embedding tensor saved successfully to {os.path.join(split_dir, f'{type}.pt')}!\n')
     
         
 
