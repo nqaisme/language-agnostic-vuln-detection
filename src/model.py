@@ -194,11 +194,12 @@ class simple_classifier:
         
         
         output_dir = kwargs.get('output_dir', os.getcwd())
-        file_name = f'{kwargs.get('dataset')}_{sample.type}__weights.pkl'
+        file_name = f'{sample.type}__weights.pkl'
         os.makedirs(output_dir, exist_ok=True)
         joblib.dump(model, os.path.join(output_dir, file_name))
         
         print(f'Model\'s weights saved successfully to {os.path.join(output_dir, file_name)}!\n')
+        
         return os.path.join(output_dir, file_name)
     
     @staticmethod
