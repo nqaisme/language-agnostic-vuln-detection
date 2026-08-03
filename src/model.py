@@ -186,8 +186,6 @@ class simple_classifier:
         model = LinearSVC(
             random_state=self.random_state,
             max_iter=self.max_iter,
-            class_weight='balanced',
-            C=1.0
         )
         
         model.fit(sample.X, sample.y)
