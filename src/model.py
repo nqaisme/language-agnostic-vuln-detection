@@ -192,7 +192,7 @@ class simple_classifier:
         
         
         output_dir = kwargs.get('output_dir', os.getcwd())
-        file_name = f'{sample.type}__weights.pkl'
+        file_name = f'{sample.type}_weights.pkl'
         os.makedirs(output_dir, exist_ok=True)
         joblib.dump(model, os.path.join(output_dir, file_name))
         
