@@ -2,6 +2,7 @@ from model import extractor, neutral_feature_builder, simple_classifier, ds_samp
 from datasets import load_dataset
 import VARS, numpy as np, argparse, os, torch, datetime
 from tmp import tmp_dataset
+from datasets import load_from_disk
 
 def save_tensor(tensor: dict, split: str, type: str, args):
     if not args.output_dir:
@@ -58,19 +59,29 @@ def parse_args():
     
     
     parser.add_argument(
-        '--dataset',
+        '--dataset-path',
+        default=None,
         type=str,
-        default='colin/PrimeVul',
-        help='huggingface dataset',
+        help='path to the dataset directory, consists of train & test set',
         required=True
     )
     
     parser.add_argument(
-        '--subset',
+        '--weights-path',
+        default=None,
         type=str,
-        help='subset of the given dataset',
-        required=False
+        help='path to model\' weights directory',
+        required=True
     )
+    
+    parser.add_argument(
+        '--features-path',
+        default=None,
+        type=str,
+        help='path to embedding tensors directory',
+        required=True
+    )
+    
     
     parser.add_argument(
         '--source-col',
@@ -90,8 +101,9 @@ def parse_args():
     
     parser.add_argument(
         '--output-dir',
+        default=None,
         type=str,
-        default='/content/drive/MyDrive'
+        required=True
     )
     
     parser.add_argument(
@@ -144,31 +156,75 @@ def parse_args():
         required=False
     )
     
+    parser.add_argument(
+        '--do-train',
+        action='store_true'
+    )
+    
+    parser.add_argument(
+        '--do-test',
+        action='store_true'
+    )
+    
+    
+    
+    parser.add_argument()
+    
     return parser.parse_args()
 
 def main(args):
 
-    dataset = load_dataset(args.dataset, args.subset).select_columns(
-        [args.source_col, args.label_col]
-        ).rename_columns(
-            {args.source_col: 'function', args.label_col: 'label'}
-            )
+    # dataset = load_dataset(args.dataset, args.subset).select_columns(
+    #     [args.source_col, args.label_col]
+    #     ).rename_columns(
+    #         {args.source_col: 'function', args.label_col: 'label'}
+    #         )
+    
+    dataset = load_from_disk(args.dataset_path).rename_columns(
+        {
+            args.source_col: 'function',
+            args.label_col: 'label'
+        }
+    )
     
     
-
-            
     dir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     args.output_dir = os.path.join(args.output_dir, dir_name)
-    
-    features = build_features(dataset, args)
-    classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
 
-    results = {}
-    for type in ['ec', 'eg', 'nf']:
-        results[type] = classifier.train(features['train'][type], **{"output_dir": args.output_dir, 'dataset': args.dataset})
     
-    for type in ['ec', 'eg', 'nf']:
-        print(simple_classifier.evaluate(results[type], features['test'][type]))
+    if args.do_train:
+        features = build_features(dataset, args)
+        classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
+        results = {}
+        
+        for type in ['ec', 'eg', 'nf']:
+            results[type] = classifier.train(features['train'][type], **{"output_dir": args.output_dir, 'dataset': args.dataset})
+    
+    if args.do_test:
+        weight_paths = {
+            'ec': os.path.join(args.weight_path, 'ec_weights.pkl'),
+            'eg': os.path.join(args.weight_path, 'eg_weights.pkl'),
+            'nf': os.path.join(args.weight_path, 'nf_weights.pkl')
+        }
+        features = {
+            'ec': torch.load(os.path.join(args.features_path, 'ec.pt')),
+            'eg': torch.load(os.path.join(args.features_path, 'eg.pt')),
+            'nf': torch.load(os.path.join(args.features_path, 'nf.pt'))
+        }
+        
+        y_test = np.array(dataset['test']['label'])
+        
+        for type, weight in weight_paths.items():
+            print(simple_classifier.evaluate(
+                weight,
+                ds_sample(features[type], y_test, type)
+            ))
+            
+        
+        
+        
+        
+        
     
 if __name__ == '__main__':
     args = parse_args()
