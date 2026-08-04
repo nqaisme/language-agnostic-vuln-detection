@@ -202,14 +202,14 @@ def main(args):
     
     if args.do_test:
         weight_paths = {
-            'ec': os.path.join(args.weight_path, 'ec_weights.pkl'),
-            'eg': os.path.join(args.weight_path, 'eg_weights.pkl'),
-            'nf': os.path.join(args.weight_path, 'nf_weights.pkl')
+            'ec': os.path.join(args.weights_path, 'ec_weights.pkl'),
+            'eg': os.path.join(args.weights_path, 'eg_weights.pkl'),
+            'nf': os.path.join(args.weights_path, 'nf_weights.pkl')
         }
         features = {
-            'ec': torch.load(os.path.join(args.features_path, 'ec.pt')),
-            'eg': torch.load(os.path.join(args.features_path, 'eg.pt')),
-            'nf': torch.load(os.path.join(args.features_path, 'nf.pt'))
+            'ec': torch.load(os.path.join(args.features_path, 'test/ec.pt')),
+            'eg': torch.load(os.path.join(args.features_path, 'test/eg.pt')),
+            'nf': torch.load(os.path.join(args.features_path, 'test/nf.pt'))
         }
         
         y_test = np.array(dataset['test']['label'])
