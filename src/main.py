@@ -8,7 +8,7 @@ def save_tensor(tensor: dict, split: str, type: str, args):
     if not args.result_dir:
         result_dir = os.path.join(os.getcwd(), 'tensors')
     else:
-        result_dir = os.path.join(args.output_dir, 'tensors')
+        result_dir = os.path.join(args.result_dir, 'tensors')
 
     os.makedirs(result_dir, exist_ok=True)
     split_dir = os.path.join(result_dir, split)
@@ -145,12 +145,8 @@ def parse_args():
     parser.add_argument(
         '--tensor-dir',
         type=str,
-        defaut='tensors',
+        default='tensors',
     )
-    
-    
-    
-    parser.add_argument()
     
     return parser.parse_args()
 
