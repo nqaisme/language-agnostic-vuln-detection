@@ -1,7 +1,7 @@
 from model import extractor, neutral_feature_builder, simple_classifier, ds_sample
-from datasets import load_dataset
-import VARS, numpy as np, argparse, os, torch, datetime
+import VARS, numpy as np, os, torch, datetime
 from tmp import tmp_dataset
+from arg_parse import parse_args
 from datasets import load_from_disk
 
 def save_tensor(tensor: dict, split: str, type: str, args):
@@ -23,6 +23,9 @@ def build_features(dataset, args):
     builder = neutral_feature_builder()
     
     result = {}
+    
+    if args.extract_only:
+        
     for split in ['train', 'test']:
         result[split] = {}
         for type in ['ec', 'eg', 'nf']:
@@ -42,114 +45,6 @@ def build_features(dataset, args):
             save_tensor(ebd, split, type, args)
     return result
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    
-    parser.add_argument(
-        '--source-col',
-        type=str,
-        default=None,
-        help='name of column which contains source code',
-        required=True
-    )
-    
-    parser.add_argument(
-        '--label-col',
-        type=str,
-        default=None,
-        help='name of column which contains label of source code',
-        required=True
-    )
-        
-    parser.add_argument(
-        '--max-iter',
-        type=int,
-        default=1000,
-    )
-    
-    parser.add_argument(
-        '--random-state',
-        type=int,
-        default=42
-    )
-    
-    parser.add_argument(
-        '--batch-size',
-        type=int,
-        default=64,
-    )
-    
-    parser.add_argument(
-        '--max-length',
-        type=int,
-        default=512
-    )
-    
-    parser.add_argument(
-        '--norm',
-        type=str,
-        default='l2',
-        choices=['l2', 'minmax']
-    )
-    
-    parser.add_argument(
-        '--fuse',
-        type=str,
-        default='concat',
-        choices=['concat', 'average', 'weighted']
-    )
-    
-    parser.add_argument(
-        '--alpha',
-        type=float,
-        default=0.5
-    )
-    
-    parser.add_argument(
-        '--pca-dim',
-        type=int,
-        required=False
-    )
-    
-    parser.add_argument(
-        '--do-train',
-        action='store_true'
-    )
-    
-    parser.add_argument(
-        '--do-test',
-        action='store_true'
-    )
-    
-    parser.add_argument(
-        '--dataset-dir',
-        type=str,
-        default=None,
-        required=True,
-    )
-    
-    parser.add_argument(
-        '--result-dir',
-        type=str,
-        default=None,
-        required=True
-    )
-    
-    parser.add_argument(
-        '--result-subdir',
-        type=str,
-        default=None,
-        required=True
-    )
-    
-    parser.add_argument(
-        '--tensor-dir',
-        type=str,
-        default='tensors',
-    )
-    
-    return parser.parse_args()
-
 def main(args):
 
     # dataset = load_dataset(args.dataset, args.subset).select_columns(
@@ -166,11 +61,11 @@ def main(args):
     )
     
     
-    subdir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    args.result_dir = os.path.join(args.result_dir, subdir_name)
 
     
     if args.do_train:
+        subdir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+        args.result_dir = os.path.join(args.result_dir, subdir_name)
         features = build_features(dataset, args)
         classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
         results = {}
@@ -178,16 +73,16 @@ def main(args):
         for type in ['ec', 'eg', 'nf']:
             results[type] = classifier.train(features['train'][type], **{"output_dir": args.result_dir, 'dataset': os.path.basename(args.dataset_dir)})
     
-    if args.do_test:
+    elif args.do_test:
         weight_paths = {
             'ec': os.path.join(args.result_dir, args.result_subdir, 'ec_weights.pkl'),
             'eg': os.path.join(args.result_dir, args.result_subdir, 'eg_weights.pkl'),
             'nf': os.path.join(args.result_dir, args.result_subdir, 'nf_weights.pkl'),            
         }
         tensor_paths = {
-            'ec': os.path.join(args.result_dir, args.result_subdir, args.tensor_dir, '/test/ec.pt'),
-            'eg': os.path.join(args.result_dir, args.result_subdir, args.tensor_dir, '/test/eg.pt'),
-            'nf': os.path.join(args.result_dir, args.result_subdir, args.tensor_dir, '/test/nf.pt'),
+            'ec': os.path.join(args.result_dir, args.result_subdir, args.tensor_dir, 'test/ec.pt'),
+            'eg': os.path.join(args.result_dir, args.result_subdir, args.tensor_dir, 'test/eg.pt'),
+            'nf': os.path.join(args.result_dir, args.result_subdir, args.tensor_dir, 'test/nf.pt'),
         }
         
         y_true = np.array(dataset['test']['label'])
@@ -199,8 +94,9 @@ def main(args):
                 type
             )
             print(f"{type} embedding result:\t{simple_classifier.evaluate(weight_file, sample)}")
-
-
+    
+    elif args.extract_only:
+        build_features(dataset, args)
 if __name__ == '__main__':
     args = parse_args()
     main(args)
