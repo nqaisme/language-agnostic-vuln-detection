@@ -26,24 +26,33 @@ def build_features(dataset, args):
     
     if args.extract_only:
         
-    for split in ['train', 'test']:
-        result[split] = {}
-        for type in ['ec', 'eg', 'nf']:
-            match type:
-                case 'ec':
-                    ebd = cx(list(dataset[split]['function']))
-                case 'eg':
-                    ebd = gcx(list(dataset[split]['function']))
-                case 'nf':
-                    ebd = builder.build(result[split]['ec'].X, result[split]['eg'].X)
-            
-            result[split][type] = ds_sample(
-                ebd,
-                np.array(dataset[split]['label']),
-                type
-            )
-            save_tensor(ebd, split, type, args)
-    return result
+        if args.ec:
+            [save_tensor(cx(list(dataset[split]['function'])), 'ec', args) for split in ['train', 'test']]
+        elif args.eg:
+            [save_tensor(gcx(list[dataset[split]['function']]), 'eg', args) for split in ['train']['test']]
+        elif args.all_embedding:
+            [save_tensor(cx(list(dataset[split]['function'])), 'ec', args) for split in ['train', 'test']]
+            [save_tensor(gcx(list[dataset[split]['function']]), 'eg', args) for split in ['train','test']]
+    
+    else:
+        for split in ['train', 'test']:
+            result[split] = {}
+            for type in ['ec', 'eg', 'nf']:
+                match type:
+                    case 'ec':
+                        ebd = cx(list(dataset[split]['function']))
+                    case 'eg':
+                        ebd = gcx(list(dataset[split]['function']))
+                    case 'nf':
+                        ebd = builder.build(result[split]['ec'].X, result[split]['eg'].X)
+                
+                result[split][type] = ds_sample(
+                    ebd,
+                    np.array(dataset[split]['label']),
+                    type
+                )
+                save_tensor(ebd, split, type, args)
+        return result
 
 def main(args):
 
@@ -66,7 +75,7 @@ def main(args):
     if args.do_train:
         subdir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
         args.result_dir = os.path.join(args.result_dir, subdir_name)
-        features = build_features(dataset, args)
+        features = build_features(dataset.shuffle(seed=42), args)
         classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
         results = {}
         
