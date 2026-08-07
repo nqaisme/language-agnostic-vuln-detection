@@ -65,6 +65,8 @@ def parse_arg():
         type=str,
         required=True
     )
+    
+    return parser.parse_args()
 
 def main(args):
     dataset = load_from_disk(args.dataset_dir).select_columns([args.source_col, args.label_col])

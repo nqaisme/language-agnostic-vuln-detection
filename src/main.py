@@ -29,10 +29,10 @@ def build_features(dataset, args):
         if args.ec:
             [save_tensor(cx(list(dataset[split]['function'])), 'ec', args) for split in ['train', 'test']]
         elif args.eg:
-            [save_tensor(gcx(list[dataset[split]['function']]), 'eg', args) for split in ['train']['test']]
+            [save_tensor(gcx(list(dataset[split]['function'])), 'eg', args) for split in ['train','test']]
         elif args.all_embedding:
             [save_tensor(cx(list(dataset[split]['function'])), 'ec', args) for split in ['train', 'test']]
-            [save_tensor(gcx(list[dataset[split]['function']]), 'eg', args) for split in ['train','test']]
+            [save_tensor(gcx(list(dataset[split]['function'])), 'eg', args) for split in ['train','test']]
     
     else:
         for split in ['train', 'test']:
