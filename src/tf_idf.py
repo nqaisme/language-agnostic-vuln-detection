@@ -71,8 +71,8 @@ def parse_arg():
 def main(args):
     dataset = load_from_disk(args.dataset_dir).select_columns([args.source_col, args.label_col])
     
-    ast_train = [extract_ast_features(remove_comments_and_docstrings(code)) for code in list(dataset['train'][args.source_col])]
-    ast_test = [extract_ast_features(remove_comments_and_docstrings(code)) for code in list(dataset['test'][args.source_col])]
+    ast_train = [extract_ast_features(remove_comments_and_docstrings(code, 'c')) for code in list(dataset['train'][args.source_col])]
+    ast_test = [extract_ast_features(remove_comments_and_docstrings(code, 'c')) for code in list(dataset['test'][args.source_col])]
     
     ast_train, ast_test = np.array(ast_train), np.array(ast_test)
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=1000)
