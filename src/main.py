@@ -76,9 +76,6 @@ def main(args):
         subdir_name = datetime.datetime.now().strftime('%Y%m%d_%H%M')
         args.result_dir = os.path.join(args.result_dir, subdir_name)
         
-        with open(os.path.join(args.result_dir, 'note.txt'), 'w') as f:
-            f.write(f"dataset: {args.dataset_dir}\ntime: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        
         features = build_features(dataset.shuffle(seed=42), args)
         classifier = simple_classifier(max_iter=args.max_iter, random_state=args.random_state)
         results = {}

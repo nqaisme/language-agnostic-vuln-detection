@@ -195,6 +195,8 @@ class simple_classifier:
         file_name = f'{sample.type}_weights.pkl'
         os.makedirs(output_dir, exist_ok=True)
         joblib.dump(model, os.path.join(output_dir, file_name))
+        with open(os.path.join(output_dir, 'note.txt'), 'w') as f:
+            f.write(f"dataset: {kwargs.get('dataset', 'Unknown')}\ntime: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         
         print(f'Model\'s weights saved successfully to {os.path.join(output_dir, file_name)}!\n')
         
